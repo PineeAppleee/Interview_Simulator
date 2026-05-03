@@ -1,0 +1,62 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id         String      @id @default(uuid())
+  email      String      @unique
+  name       String?
+  interviews Interview[]
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
+}
+
+model Interview {
+  id               String            @id @default(uuid())
+  userId           String
+  user             User              @relation(fields: [userId], references: [id])
+  status           String            @default("IN_PROGRESS") // IN_PROGRESS, COMPLETED
+  role             String            @default("Software Engineer")
+  answers          Answer[]
+  evaluations      Evaluation[]
+  proctoringEvents ProctoringEvent[]
+  startedAt        DateTime          @default(now())
+  endedAt          DateTime?
+  score            Float?            @db.DoublePrecision
+}
+
+model Answer {
+  id          String      @id @default(uuid())
+  interviewId String
+  interview   Interview   @relation(fields: [interviewId], references: [id])
+  question    String      @db.Text
+  transcript  String      @db.Text
+  createdAt   DateTime    @default(now())
+  evaluation  Evaluation?
+}
+
+model Evaluation {
+  id          String    @id @default(uuid())
+  interviewId String
+  interview   Interview @relation(fields: [interviewId], references: [id])
+  answerId    String?   @unique
+  answer      Answer?   @relation(fields: [answerId], references: [id])
+  score       Float     @db.DoublePrecision
+  feedback    String    @db.Text
+  missingPts  String?   @db.Text
+  createdAt   DateTime  @default(now())
+}
+
+model ProctoringEvent {
+  id          String    @id @default(uuid())
+  interviewId String
+  interview   Interview @relation(fields: [interviewId], references: [id])
+  eventType   String    // TAB_SWITCH, COPY_PASTE, IDLE, FACE_LOST
+  details     String?   @db.Text
+  createdAt   DateTime  @default(now())
+}
