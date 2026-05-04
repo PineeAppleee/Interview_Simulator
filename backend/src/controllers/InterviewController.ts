@@ -90,4 +90,30 @@ export class InterviewController {
       return res.status(500).json({ error: error.message || 'Transcription failed' });
     }
   };
+
+  getScores = async (req: any, res: Response) => {
+    try {
+      const fs = require('fs');
+      const path = require('path');
+      const scoresFilePath = path.join(__dirname, '../../../scores.json');
+      
+      if (!fs.existsSync(scoresFilePath)) {
+        return res.json([]);
+      }
+      
+      const scores = JSON.parse(fs.readFileSync(scoresFilePath, 'utf-8'));
+      
+      // Filter by the logged-in user if needed, but since it's a generic dashboard, we might show all their scores.
+      // Assuming req.user.id exists, but falling back if not.
+      const userScores = req.user?.id ? scores.filter((s: any) => s.userId === req.user.id) : scores;
+      
+      // Sort descending by date
+      userScores.sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime());
+      
+      return res.json(userScores);
+    } catch (error) {
+      logger.error('Failed to get scores', error);
+      return res.status(500).json({ error: 'Failed to read scores' });
+    }
+  };
 }

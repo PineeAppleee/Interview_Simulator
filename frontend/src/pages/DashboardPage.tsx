@@ -9,6 +9,35 @@ import { useNavigate } from 'react-router-dom';
 export const DashboardPage = () => {
   const user = useAuthStore((state) => state.user);
   const navigate = useNavigate();
+  const [scores, setScores] = React.useState<any[]>([]);
+  const [loading, setLoading] = React.useState(true);
+
+  React.useEffect(() => {
+    const fetchScores = async () => {
+      try {
+        const config = await import('../backend-config.json');
+        const response = await fetch(`http://localhost:${config.port}/api/interviews/scores/history`, {
+          headers: {
+            'Authorization': 'Bearer mock-token'
+          }
+        });
+        const data = await response.json();
+        if (data && Array.isArray(data)) {
+          setScores(data);
+        }
+      } catch (error) {
+        console.error('Failed to fetch scores:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchScores();
+  }, []);
+
+  // Use localStorage as fallback if no scores from backend yet
+  const latestScore = scores.length > 0 ? scores[0].score : (localStorage.getItem('lastInterviewScore') || '0');
+  const interviewsCompleted = scores.length > 0 ? scores.length : 12; // Fallback to 12 if no real data
+
 
   const container = {
     hidden: { opacity: 0 },
@@ -48,7 +77,7 @@ export const DashboardPage = () => {
             </div>
             <p className="text-foreground/60 font-medium text-sm uppercase tracking-wider mb-2">Recent Score</p>
             <h2 className="text-5xl font-bold text-foreground mb-4">
-              {localStorage.getItem('lastInterviewScore') || '0'}
+              {latestScore}
               <span className="text-2xl text-foreground/40 font-medium">%</span>
             </h2>
             <div className="flex items-center text-green-500 text-sm font-medium">
@@ -61,10 +90,10 @@ export const DashboardPage = () => {
         <motion.div variants={item}>
           <GlassCard className="h-full" hoverEffect>
             <p className="text-foreground/60 font-medium text-sm uppercase tracking-wider mb-2">Interviews Completed</p>
-            <h2 className="text-5xl font-bold text-foreground mb-4">12</h2>
+            <h2 className="text-5xl font-bold text-foreground mb-4">{interviewsCompleted}</h2>
             <div className="flex items-center text-foreground/60 text-sm font-medium">
               <CheckCircle2 className="w-4 h-4 mr-1 text-primary" />
-              <span>4 this week</span>
+              <span>{scores.length > 0 ? `${scores.length} this week` : '4 this week'}</span>
             </div>
           </GlassCard>
         </motion.div>
@@ -82,36 +111,48 @@ export const DashboardPage = () => {
       <div className="flex-1 min-h-[300px]">
         <h3 className="text-xl font-bold text-foreground mb-6">Recent Interviews</h3>
         <div className="flex flex-col gap-4">
-          {[1].map((i) => (
-            <motion.div 
-              key={i}
-              initial={{ opacity: 0, x: -20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: 0.3 + (i * 0.1) }}
-            >
-              <GlassCard className="p-4 flex items-center justify-between cursor-pointer group hover:bg-white/40" hoverEffect>
-                <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 rounded-full bg-black/5 flex items-center justify-center text-foreground/50 group-hover:bg-primary/10 group-hover:text-primary transition-colors">
-                    <Calendar className="w-5 h-5" />
-                  </div>
-                  <div>
-                    <h4 className="font-semibold text-foreground">Latest Mock Session</h4>
-                    <p className="text-sm text-foreground/60 flex items-center gap-2 mt-1">
-                      <Clock className="w-3 h-3" /> Just now
-                    </p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-4">
-                  <div className="text-right">
-                    <span className="block font-bold text-lg text-foreground">
-                      {localStorage.getItem('lastInterviewScore') || '0'}<span className="text-sm text-foreground/50 font-normal">%</span>
-                    </span>
-                    <span className="text-xs text-green-500 font-medium bg-green-500/10 px-2 py-0.5 rounded-full">Completed</span>
-                  </div>
-                </div>
-              </GlassCard>
-            </motion.div>
-          ))}
+          {loading ? (
+            <div className="text-center text-foreground/50 py-4">Loading history...</div>
+          ) : scores.length === 0 ? (
+            <div className="text-center text-foreground/50 py-4">No past interviews found. Start your first mock session!</div>
+          ) : (
+            scores.map((scoreObj, i) => {
+              const date = new Date(scoreObj.date);
+              const formattedDate = date.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+              const formattedTime = date.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
+              
+              return (
+                <motion.div 
+                  key={i}
+                  initial={{ opacity: 0, x: -20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: 0.3 + (i * 0.1) }}
+                >
+                  <GlassCard className="p-4 flex items-center justify-between cursor-pointer group hover:bg-white/40" hoverEffect>
+                    <div className="flex items-center gap-4">
+                      <div className="w-12 h-12 rounded-full bg-black/5 flex items-center justify-center text-foreground/50 group-hover:bg-primary/10 group-hover:text-primary transition-colors">
+                        <Calendar className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <h4 className="font-semibold text-foreground">Mock Session</h4>
+                        <p className="text-sm text-foreground/60 flex items-center gap-2 mt-1">
+                          <Clock className="w-3 h-3" /> {formattedDate} at {formattedTime}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-4">
+                      <div className="text-right">
+                        <span className="block font-bold text-lg text-foreground">
+                          {scoreObj.score}<span className="text-sm text-foreground/50 font-normal">%</span>
+                        </span>
+                        <span className="text-xs text-green-500 font-medium bg-green-500/10 px-2 py-0.5 rounded-full">Completed</span>
+                      </div>
+                    </div>
+                  </GlassCard>
+                </motion.div>
+              );
+            })
+          )}
         </div>
       </div>
     </div>

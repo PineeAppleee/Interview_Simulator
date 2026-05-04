@@ -1,4 +1,6 @@
 import logger from '../utils/logger';
+import fs from 'fs';
+import path from 'path';
 
 export interface ProctoringEvent {
   type: 'TAB_SWITCH' | 'COPY_PASTE' | 'IDLE' | 'FACE_LOST';
@@ -72,11 +74,31 @@ export class SessionService {
     logger.info(`Session ended for interview ${interviewId}`);
     this.sessions.delete(interviewId);
     
-    return {
+    const summary = {
       durationSeconds: Math.floor((Date.now() - session.startTime) / 1000),
       warnings: session.warningsCount,
       events: session.events,
       finalScore: parseFloat(finalScore.toFixed(1))
     };
+
+    // Save score to project folder (scores.json)
+    try {
+      const scoresFilePath = path.join(__dirname, '../../../scores.json');
+      let scores = [];
+      if (fs.existsSync(scoresFilePath)) {
+        scores = JSON.parse(fs.readFileSync(scoresFilePath, 'utf-8'));
+      }
+      scores.push({
+        interviewId,
+        userId: session.userId,
+        score: summary.finalScore,
+        date: new Date().toISOString()
+      });
+      fs.writeFileSync(scoresFilePath, JSON.stringify(scores, null, 2));
+    } catch (err) {
+      logger.error('Failed to save score to scores.json', err);
+    }
+    
+    return summary;
   }
 }
